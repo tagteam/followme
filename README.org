@@ -1,0 +1,27 @@
+* Followme
+
+Here we work on a general framework for generating longitudinal
+followup data with time-varying treatment and covariates.
+
+** Example
+
+The first example is
+
+#+ATTR_LATEX: :options otherkeywords={}, deletekeywords={}
+#+BEGIN_SRC R  :results output raw  :exports code  :session *R* :cache yes  
+library(targets)
+library(lava)
+library(foreach)
+library(data.table)
+tar_source("functions")
+tar_make()
+s <- tar_read(diabetes_polypharmacy_setting)
+## dput(s$parameter_values)
+s$parameter_values$intercept_age <- 50
+s$parameter_values$intercept_HbA1c <- 60
+s$parameter_values$effect_U_age = 12.9
+s$parameter_values$effect_U_HbA1c = 8.3
+test <- do.call("simulate_person",s)
+d <- do.call("simulate_cohort",c(list(n = 20),s))
+d
+#+END_SRC
