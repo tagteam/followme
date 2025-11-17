@@ -3,9 +3,13 @@ library(here)
 library(lava)
 library(data.table)
 library(prodlim)
-tar_source(here("functions"))
-tar_load(diabetes_polypharmacy_setting)
+# tar_source(here("functions"))
 tar_load_globals()
+x <- get_alcohol_setting()
+test <- do.call("simulate_person",x)
+test <- do.call("simulate_cohort",c(list(n = 100),x))
+
+
 
 ## Old school
 alco_simulator <- function(n, frail_out = 1, frail_survey = 0, alco_out = 1, alco_survey = 0, shape_out = 2, scale_out = 1, shape_survey = 1.5, scale_survey = 1){

@@ -15,6 +15,13 @@ make_regression_model <- function(outcome_variables,parameter_values) {
             distribution(m, v) <- normal.lvm()
             intercept(m,v) <- parameter_values[[paste0("intercept_",v)]]
         }
+        if (outcome_variables[[v]] == "lognormal"){
+            distribution(m, v) <- lognormal.lvm()
+            intercept(m,v) <- parameter_values[[paste0("intercept_",v)]]
+        }
+        if (outcome_variables[[v]] == "Exponential"){
+            distribution(m, v) <- coxWeibull.lvm(shape = 1,scale = parameter_values[[paste0("scale_",v)]])
+        }
         if (outcome_variables[[v]] == "Weibull"){
             distribution(m, v) <- coxWeibull.lvm(scale = parameter_values[[paste0("scale_",v)]])
         }

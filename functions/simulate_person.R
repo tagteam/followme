@@ -3,9 +3,9 @@
 ## Author: Thomas Alexander Gerds
 ## Created: okt 23 2025 (15:15) 
 ## Version: 
-## Last-Updated: nov  5 2025 (16:02) 
+## Last-Updated: nov 17 2025 (14:34) 
 ##           By: Thomas Alexander Gerds
-##     Update #: 52
+##     Update #: 62
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -32,19 +32,23 @@ simulate_person <- function(max_follow,
     ## that we want to draw from X (lava::sim just passes these as they are)
     ##
     simX <- function(x,X,variables = NULL,only_variables = length(variables)>0,...){
-        if (sum(x$M)>0 && NROW(X)>0){
-            data.table::setDF(X)
-            if (any(variables%in%names(X))){
-                X = X[,setdiff(names(X),variables),drop = FALSE]
+        if (length(x$M)>0){
+            if (sum(x$M)>0 && NROW(X)>0){
+                data.table::setDF(X)
+                if (any(variables%in%names(X))){
+                    X = X[,setdiff(names(X),variables),drop = FALSE]
+                }
+                d <- data.table::setDT(lava::sim(x = x,X = X,...))
+            }else{
+                d <- data.table::setDT(lava::sim(x = x,...)) 
             }
-            d <- data.table::setDT(lava::sim(x = x,X = X,...))
+            if (only_variables[[1]] == TRUE){
+                d[,variables,with = FALSE]
+            }else{
+                d
+            }
         }else{
-            d <- data.table::setDT(lava::sim(x = x,...))
-        }
-        if (only_variables[[1]] == TRUE){
-            d[,variables,with = FALSE]
-        }else{
-            d
+            NA
         }
     }
     ##
@@ -112,7 +116,8 @@ simulate_person <- function(max_follow,
                                X = event_history[NROW(event_history)],
                                p = parameter_values),
                           c(visit = next_visit))
-        # note that latent_times is a named vector 
+        # note that latent_times is a named vector
+        latent_times <- na.omit(latent_times)
         current_event <- latent_times[which.min(unlist(latent_times))]
         # update current time
         current_time <- current_time+current_event[[1]]

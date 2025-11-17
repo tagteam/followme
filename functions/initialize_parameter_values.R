@@ -21,11 +21,28 @@ initialize_parameter_values <- function(baseline_variables,
         setNames(rep(effect_value, nrow(combinations)), paste0("effect_",apply(combinations, 1, paste, collapse = "_")))
     }
     effects_baseline_baseline <- construct_effects(baseline_variables,baseline_variables,effect_value = effect_value)
-    effects_baseline_visit <- construct_effects(baseline_variables,c(visit_events,visit_measurements,events),effect_value = effect_value)
-    effects_timevar <- construct_effects(c(intermediate_events,visit_measurements,visit_events),events,effect_value = effect_value)
+
+    effects_baseline_events <- construct_effects(baseline_variables,
+                                                 events,
+                                                 effect_value = effect_value)
+    if (length(visit_events)>0){
+        effects_baseline_visit <- construct_effects(baseline_variables,
+                                                    c(visit_events,visit_measurements),
+                                                    effect_value = effect_value)
+    }else{
+        effects_baseline_visit <- NULL
+    }
+    if (length(intermediate_events)>0){
+        effects_timevar <- construct_effects(c(intermediate_events,visit_measurements,visit_events),
+                                             events,
+                                             effect_value = effect_value)
+    }else{
+        effects_timevar <- NULL
+    }
     as.list(c(intercepts,
               scales,
               effects_baseline_baseline,
               effects_baseline_visit,
+              effects_baseline_events,
               effects_timevar))
 }
