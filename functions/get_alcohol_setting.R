@@ -1,7 +1,9 @@
 get_alcohol_setting <- function(){
     max_follow <- 60
     baseline_variables <- list("frailty" = "normal",
-                               "alcohol" = "lognormal")
+                               "alcohol" = "lognormal",
+                               "heart" = "binomial",
+                               "liver" = "binomial")
     intermediate_events = NULL
     visit_measurements = NULL
     visit_events = NULL
@@ -11,12 +13,20 @@ get_alcohol_setting <- function(){
     ## dput(ipv)
     ipv = list(intercept_frailty = 0,
                intercept_alcohol = 2,
+               intercept_heart = 0,
+               intercept_liver = 0,
                scale_death = 0.0001, 
                scale_dropout = 0.0000000001,
                effect_alcohol_frailty = 0,
-               effect_frailty_alcohol = 0, 
-               effect_frailty_death = 1,
-               effect_alcohol_death = 1,
+               effect_frailty_alcohol = 0,
+               effect_alcohol_heart = -0.1,
+               effect_alcohol_liver = 0.1,
+               effect_frailty_heart = 0.1,
+               effect_frailty_liver = 0.1, 
+               ## effect_frailty_death = 1,
+               ## effect_alcohol_death = 1,
+               effect_heart_death = 1,
+               effect_liver_death = 1,
                effect_frailty_dropout = 0, 
                effect_alcohol_dropout = 0)
     list(max_follow = max_follow,
