@@ -18,7 +18,7 @@ simulate_cohort2 <- function(n,
     ## Helper function which removes variables
     ## that we want to draw from X (lava::sim just passes these as they are)
     ##
-    simX <- function(x,X,variables = NULL,only_variables = length(variables)>0,keep_id = TRUE,...){
+    simX <- function(x,X,variables = NULL,only_variables = length(variables)>0,keep_id = FALSE,...){
         on.exit({
             if(!is.null(X)) data.table::setDT(X)
         })
@@ -29,7 +29,7 @@ simulate_cohort2 <- function(n,
                     X = X[,setdiff(names(X),variables),drop = FALSE]
                 }
                 d <- data.table::setDT(lava::sim(x = x,X = X,...))
-                if("id"%in%names(X) && keep_id)
+                if("id"%in%names(X) && keep_id) ## Could remove this, not used in the end...
                     d$id <- X$id
             }else{
                 d <- data.table::setDT(lava::sim(x = x,...)) 
