@@ -3,60 +3,64 @@ library(here)
 library(lava)
 library(data.table)
 library(prodlim)
-# tar_source(here("functions"))
 tar_load_globals()
+
+## Testing new simulator on alcohol setup
 x <- get_alcohol_setting()
-test <- do.call("simulate_person",x)
 test <- do.call("simulate_cohort",c(list(n = 100),x))
+test2 <- do.call("simulate_cohort2",c(list(n = 100),x))
+
+
+## Testing new simulator on diabetes polypharmacy setting
+s <- tar_read(diabetes_polypharmacy_setting)
+s$parameter_values$intercept_age <- 50
+s$parameter_values$intercept_HbA1c <- 60
+s$parameter_values$effect_U_age = 12.9
+s$parameter_values$effect_U_HbA1c = 8.3
+s$parameter_values$effect_U_changeHbA1c = -0.5
+s$parameter_values$effect_changeHbA1c_MACE = 0.03
+s$parameter_values$effect_U_death = 0.1
+
+uu <- do.call("simulate_cohort",c(list(n = 100),s))
+uu2 <- do.call("simulate_cohort2",c(list(n = 100),s))
 
 
 
-## Old school
-alco_simulator <- function(n, frail_out = 1, frail_survey = 0, alco_out = 1, alco_survey = 0, shape_out = 2, scale_out = 1, shape_survey = 1.5, scale_survey = 1){
-
-    m <- lvm()
-    distribution(m,~frail) <- binomial.lvm(p=0.5)
-    categorical(m,labels=c("None","Moderate","High")) <- "alco"
-    distribution(m,~outcome_time) <- coxWeibull.lvm(scale=shape_out,shape=scale_out)
-    distribution(m,~survey_time) <- coxWeibull.lvm(scale=shape_survey,shape=scale_survey)
-    
-    regression(m,outcome_time~frail+alco) <- c(frail_out, alco_out)
-    regression(m,survey_time~frail+alco) <- c(frail_survey, alco_survey)
-    
-    out <- sim(m, n = n)        
-    setDT(out)
-
-    out[, sampled := ifelse(survey_time < outcome_time, 1, 0)]
-    
-    return(out[])
-    
-}
 
 
-dd <- alco_simulator(10000, frail_out = 2)
+## ## Alcohol project:
+## SEM:
+## alcohol --(+)--> heart
+## alcohol --(-)--> liver
+## frailty --(-)--> heart
+## frailty --(-)--> liver
+## heart   --(-)--> death
+## liver   --(-)--> death
 
-dd[, prop.table(table(alco, frail), 1)]
-dd[sampled == 1, prop.table(table(alco, frail), 1)]
 
-plot(prodlim(Hist(outcome_time)~alco, data = dd), xlim = c(0,0.1))
-plot(prodlim(Hist(outcome_time-survey_time)~alco, data = dd[sampled == 1]), xlim = c(0,0.1))
+## Think: Make heart and liver time or baseline covariates.
 
-## How to get a U/J-shape? 
+test[, alco_group := cut(alcohol, breaks = c(0,5,10,Inf), labels = c("low", "medium", "high"))]
+
+test[, hist(alcohol, breaks = 100)]
+
+test[, table(event)]
+test[, died := 1*("death" %in% event), id]
+setorder(test, id, time)
+test[event == "visit", visit_nr := 1:.N, by = .(id)]
 
 
-## ## How to reproduce about with followme?
-## ll <- list(max_follow = 60,
-##            baseline_variables = list("U" = "normal"),
-##            absorbing_events = list("death" = "Weibull"))
 
-## initialize_parameter_values(baseline_variables = names(ll$baseline_variables),
-##                             absorbing_events = names(ll$absorbing_events),
-##                             intermediate_events = "dummy",
-##                             visit_measurements = "dummy",
-##                             visit_events = "dummy"
-##                             )
+## test[event == "baseline", 100*prop.table(table(Publish::acut(frailty, 3), died), 1)]
+## test[visit_nr == 1, 100*prop.table(table(Publish::acut(frailty, 3), died), 1)]
 
-##?
+test[event == "baseline", 100*prop.table(table(alco_group, died), 1)]
+test[visit_nr == 1, 100*prop.table(table(alco_group, died), 1)]
+
+
+
+## Simulate from J curve: Two fraily levels, pushed alcohol in different directions
+
 
 
 
