@@ -1,0 +1,22 @@
+# Simulation study plan for dual treatment analysis 
+
+## Overall design
+
+We simulate patient trajectories in continuous time from the first
+prescription of GLP1 until MACE, death or censoring.
+
+## Aims
+
+### For starters
+We aim to demonstrate that our ltmle analyses are nearly unbiased in
+the dual treatment situation.
+
+### Background drug design
+
+Evaluated different analysis designs for polypharmacy studies:
+
+- dual treatment with ltmle
+- sequential nested trial design
+- prevalent new user design 
+
+

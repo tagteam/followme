@@ -1,0 +1,56 @@
+* Simulation scenario 1
+
+We simulate followup data for subjects who start GLP1-RA
+treatment. The date of treatment start is the baseline date. At
+baseline, we simulate age, sex and HbA1c. All subjects have baseline
+HbA1c > 7% (53 mmol/mol). We prespecify a next visit date after 3
+months +/- 1 month. At baseline we simulate what happens next: minimum
+of next visit date, intermediate event date (MACE), death, or
+end-of-followup.
+
+
+What is the decision cut off for HbA1c according to the recommendation to add on a GLP1-RA or SGLT2i?
+
+- HbA1c targets should be individualized according to the patient’s
+  ability and willingness to achieve a particular goal at the
+  investigator’s discretion. The duration of diabetes, comorbidities
+  and age can be taken into consideration
+
+Indication for dual treatment: adding SGLT2i or DPP4i to ongoing
+GLP1-RA treatment:
+
+
+
+
+
+i.  HbA1c ≤ 6.5% (47 mmol/mol) may be reasonable in selected patients,
+if this can be achieved without adverse effect such as weight gain or
+hypoglycaemia
+
+ii.  HbA1c ≤ 7.0% (53 mmol/mol) is reasonable for many patients
+
+iii.  HbA1c < 8% (64 mmol/mol) may be appropriate for people with
+ substantial comorbidities, limited life expectancy or at high risk of
+ hypoglycaemia in whom the goal is difficult to achieve
+
+iv.    A less restrictive target may be appropriate for frail patients
+
+
+
+
+  1.  In the UK it seems to vary but reddit seems to say that usually people will see their diabetes consult at least once a year but perhaps more often if there is a concern regarding uncontrolled blood glucose levels, foot ulcers, retinopathy, ..
+  2.  Regarding the drop in project, I have a bit of unsatisfying news. The protocol only says that you need to provide standard of care to the patients:
+
+“Importantly, investigators should ensure that patients are treated according to recommended
+
+standard of care for both glycaemic management as well as CV risk management. Recommendations
+
+for this will be provided in guidance documents from the steering committee and global
+
+expert panel during trial conduct. Surveillance of adherence to standard of care will be performed
+
+centrally by Novo Nordisk.”
+
+
+
+So what does that mean? Well they can give them SGLT2 when they see fit as an investigator based on the ADA guidelines shown above. So it is not necessarily clear either, the difference being is that in a trial you would obviously have more frequent touchpoints with your patients.
