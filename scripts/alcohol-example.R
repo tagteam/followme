@@ -24,43 +24,62 @@ s$parameter_values$effect_U_death = 0.1
 uu <- do.call("simulate_cohort",c(list(n = 100),s))
 uu2 <- do.call("simulate_cohort2",c(list(n = 100),s))
 
+set.seed(111)
+do.call("simulate_person",s)
+set.seed(111)
+do.call("simulate_cohort2",c(list(n = 1),s))
 
+set.seed(111)
+do.call("simulate_person",x)
+set.seed(111)
+do.call("simulate_cohort2",c(list(n = 1),x))
 
+## Manual setup, target
+sim_alco <- function(n,
+                     alco_heart = -1,
+                     alco_liver = 1,
+                     heart_death = 1.2,
+                     liver_death = 1.2,
+                     frail_heart = 1,
+                     frail_liver = 1,
+                     frail_death = 1){
 
+    U = 1*(runif(n)<.5)
 
-## ## Alcohol project:
-## SEM:
-## alcohol --(+)--> heart
-## alcohol --(-)--> liver
-## frailty --(-)--> heart
-## frailty --(-)--> liver
-## heart   --(-)--> death
-## liver   --(-)--> death
+    A = sample(c("none","medium","high"), size = n, replace = TRUE, prob = rep(1/3,3))
+    heart_protect = 1*(A != "none")
+    liver_harm = 1*(A == "high")
 
+    H = rbinom(n,1, plogis(-1 + alco_heart*heart_protect + frail_heart*U))
+    L = rbinom(n,1, plogis(-1 + alco_liver*liver_harm + frail_liver*U))
 
-## Think: Make heart and liver time or baseline covariates.
+    T = rexp(n, rate = exp(-1 + heart_death*H + liver_death*L + frail_death*U))
+    
+    data.table(frail = U,
+               alcohol = A,
+               ## heart_protect = heart_protect,
+               ## liver_harm = liver_harm,
+               heart = H,
+               liver = L,
+               time = T,
+               event = 1)
 
-test[, alco_group := cut(alcohol, breaks = c(0,5,10,Inf), labels = c("low", "medium", "high"))]
+}
 
-test[, hist(alcohol, breaks = 100)]
+sim_dd <- sim_alco(n = 1000000)
+## pl <- prodlim(Hist(time, event)~alcohol, data = sim_dd)
+## plot(pl, xlim = c(0, 1))
+pred_hor <- 0.5
+sim_dd[, 100*prop.table(table(alcohol, Surv = 1*(time >= pred_hor)), 1)]
+visit_time <- 2
+sim_dd[time>visit_time][, 100*prop.table(table(alcohol, Surv = 1*(time >= visit_time+pred_hor)), 1)]
+## Sort of done now. The effect vanishes in this setup.
 
-test[, table(event)]
-test[, died := 1*("death" %in% event), id]
-setorder(test, id, time)
-test[event == "visit", visit_nr := 1:.N, by = .(id)]
+## Try to just do it with simple setup with one frailty model and a binary treatment.
+## What would it take for it to switch over?
 
-
-
-## test[event == "baseline", 100*prop.table(table(Publish::acut(frailty, 3), died), 1)]
-## test[visit_nr == 1, 100*prop.table(table(Publish::acut(frailty, 3), died), 1)]
-
-test[event == "baseline", 100*prop.table(table(alco_group, died), 1)]
-test[visit_nr == 1, 100*prop.table(table(alco_group, died), 1)]
-
-
-
-## Simulate from J curve: Two fraily levels, pushed alcohol in different directions
-
-
+dd_cond <- sim_dd[time>visit_time][, rest_time := time-visit_time]
+pl_cond <- prodlim(Hist(rest_time, event)~alcohol, data = dd_cond)
+plot(pl_cond, xlim = c(0, 1))
 
 
