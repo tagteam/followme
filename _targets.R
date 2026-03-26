@@ -3,9 +3,9 @@
 ## Author: Thomas Alexander Gerds
 ## Created: okt 23 2025 (15:22) 
 ## Version: 
-## Last-Updated: Mar 26 2026 (14:16) 
+## Last-Updated: Mar 26 2026 (15:44) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 281
+##     Update #: 301
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -40,6 +40,7 @@ if (dir.exists("/projects/biostat01/people/snf991/followme")) {
 
 tar_option_set(packages = c("lava","survival","data.table","prodlim","rtmle","foreach","ggplot2","plotly", "contICEIPCW"),
                controller = controller)
+               ## debug = "sim_confounding_effect_outcome_915ab5486bc867f1")
 ## # Install contICEIPCW from GitHub if not already installed:
 ## devtools::install_github("jsohlendorff/contICEIPCW")
 ## # Install RTMLE from GitHub if not already installed:
@@ -191,7 +192,7 @@ list(
 
         ice_ipcw <- run_ice_ipcw(
           data = diabetes_population,
-          time_horizons =  48,
+          time_horizons = 48,
           regimens = c("GLP1", "SGLT2", "DPP4"),
           model_pseudo_outcome = "oipcw_expit",
           penalize_pseudo_outcome = FALSE,
@@ -206,7 +207,8 @@ list(
           ice_ipcw = ice_ipcw
         )
       },
-      reps = 20,
+      iteration = "list",
+      reps = 20, 
       batches = 100
     )
   ),
