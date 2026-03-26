@@ -235,8 +235,8 @@ simulate_cohort <- function(n,
             last_entry <- update_visit
             ## Enforce max follow-up for next iteration's risk set
             last_entry <- last_entry[time <= max_follow]
-        }else{
-            last_entry <- NULL
+        } else{
+            break
         }
     }
     ## Remove events after max_follow
