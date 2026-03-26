@@ -14,7 +14,8 @@ simulate_cohort <- function(n,
                             absorbing_events, 
                             absorbing_events_hook = NULL, 
                             parameter_values, 
-                            intervention = NULL, 
+                            intervention = NULL,
+                            latent_time_varying_covariates = FALSE,
                             regime = NULL){
     if (!is.null(seed)) set.seed(seed) 
     ##
@@ -120,13 +121,16 @@ simulate_cohort <- function(n,
     data.table::setkey(last_entry, id)
     
     while (nrow(last_entry)>0) {
-
         ## draw time of next scheduled visit, allowing for skipped visits
-        nrisk <- nrow(last_entry)  
-        skipped_visits <- rbinom(n = nrisk, 3, visit_schedule[["skip"]])
-        next_visit <- skipped_visits*visit_schedule[["mean"]] +
-            pmax(rnorm(n = nrisk, mean = visit_schedule[["mean"]], sd = visit_schedule[["sd"]]), 0.1)
-
+        nrisk <- nrow(last_entry)
+        skipped_visits <- rbinom(n = nrisk,
+                                 3,
+                                 visit_schedule[["skip"]])
+        next_covariate_update <- pmax(rnorm(n = nrisk,
+                                            mean = visit_schedule[["mean"]],
+                                            sd = visit_schedule[["sd"]]), 0.1)
+        next_visit <- skipped_visits*visit_schedule[["mean"]] + next_covariate_update
+        
         ## apply hook for absorbing events
         if (is.function(absorbing_events_hook)){
             absorbing_events_model <- do.call(absorbing_events_hook,
@@ -157,11 +161,15 @@ simulate_cohort <- function(n,
         intermediate_time <- as.matrix(intermediate_time)
         absorbing_time <- as.matrix(absorbing_time)
 
-        latent_times <- matrix(NA_real_, nrow = nrisk, ncol = ncol(intermediate_time) + ncol(absorbing_time) + 1)
+        latent_times <- matrix(NA_real_, nrow = nrisk, ncol = ncol(intermediate_time) + ncol(absorbing_time) + 2)
         latent_times[, seq_len(ncol(intermediate_time))] <- intermediate_time
         latent_times[, ncol(intermediate_time) + seq_len(ncol(absorbing_time))] <- absorbing_time
         latent_times[, ncol(intermediate_time) + ncol(absorbing_time) + 1] <- next_visit
-        colnames(latent_times) <- c(colnames(intermediate_time), colnames(absorbing_time), "visit")
+        if (!latent_time_varying_covariates){
+            next_covariate_update <- rep(Inf, nrisk)
+        }
+        latent_times[, ncol(intermediate_time) + ncol(absorbing_time) + 2] <- next_covariate_update
+        colnames(latent_times) <- c(colnames(intermediate_time), colnames(absorbing_time), "visit", "covariate_update")
         
         idx <- max.col(-latent_times, ties.method = "first")
         current_event <- data.table(
@@ -171,7 +179,7 @@ simulate_cohort <- function(n,
         )
 
         ## Divide subjects at risk into two categories
-        subjects_with_intermediate_events <- current_event[event %chin% c("visit",names(intermediate_events)), .(id, time, event)]
+        subjects_with_intermediate_events <- current_event[event %chin% c("visit", "covariate_update",names(intermediate_events)), .(id, time, event)]
         subjects_absorbed <- current_event[event %chin% names(absorbing_events), .(id, time, event)]
 
         ## Cases of intermediate events
@@ -199,13 +207,32 @@ simulate_cohort <- function(n,
                 data.table::set(update_visit, j = new, value = update_measurements[[new]])
             }
 
-            ## draw visit treatment actions conditional on history
+            ## which people to update treatment for
+            update_treatment_events <- update_visit[!(event %in% "covariate_update")]
+
+            ## draw visit treatment actions conditional on history (for these people)
             update_treatment <- simX(visit_event_model,
-                                     n = nrow(update_visit),
+                                     n = nrow(update_treatment_events),
                                      p = parameter_values,
                                      variables = names(visit_events),
-                                     X = update_visit)
+                                     X = update_treatment_events)
+            data.table::set(
+                update_treatment, 
+                j = "id", 
+                value = update_treatment_events[["id"]]
+            )
 
+            ## carry last treatment forward for people with only covariate updates
+            treatment_covariate_event <- update_visit[event %in% "covariate_update", c("id", names(visit_events)), with = FALSE]
+
+            # combine to one update_treatment data.table
+            update_treatment <- rbind(update_treatment, treatment_covariate_event)
+            data.table::setkey(update_treatment, id)
+            data.table::set(
+                update_treatment,
+                j = "id",
+                value = NULL
+            )
             ## post-visit hook
             if (is.function(post_visit_hook)){
                 update_visit <- post_visit_hook(update_event_history = update_visit,
@@ -241,6 +268,10 @@ simulate_cohort <- function(n,
     }
     ## Remove events after max_follow
     event_history[time>max_follow, c("time","event") := list(max_follow,"dropout")]
+    if (latent_time_varying_covariates){
+        ## For subjects with covariate updates, we need to carry forward the last covariate values until max_follow
+        event_history <- event_history[event != "covariate_update"]
+    }
     setcolorder(event_history,"id")
     return(event_history[])
 }
