@@ -3,9 +3,9 @@
 ## Author: Thomas Alexander Gerds
 ## Created: okt 23 2025 (15:22) 
 ## Version: 
-## Last-Updated: Mar 26 2026 (15:44) 
+## Last-Updated: Mar 31 2026 (16:59) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 301
+##     Update #: 469
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -38,63 +38,70 @@ if (dir.exists("/projects/biostat01/people/snf991/followme")) {
                                         options_local = crew_options_local(log_directory = "log"))
 }
 
-tar_option_set(packages = c("lava","survival","data.table","prodlim","rtmle","foreach","ggplot2","plotly", "contICEIPCW"),
+tar_option_set(packages = c("lava","survival","data.table","prodlim","rtmle","foreach","ggplot2","plotly", "contICEIPCW", "purrr"),
                controller = controller)
-               ## debug = "sim_confounding_effect_outcome_915ab5486bc867f1")
-## # Install contICEIPCW from GitHub if not already installed:
+## install rest of packages if not already installed:
+## install.packages(c("targets", "tarchetypes", "crew", "crew.cluster", "lava", "survival", "data.table", "prodlim", "foreach", "ggplot2", "plotly", "glmnet", "targets", "tarchetypes", "crew", "crew.cluster", "devtools"))
+# Install contICEIPCW from GitHub if not already installed:
 ## devtools::install_github("jsohlendorff/contICEIPCW")
-## # Install RTMLE from GitHub if not already installed:
+# Install RTMLE from GitHub if not already installed:
 ## devtools::install_github("tagteam/RTMLE")
+
+effect_SGLT2_mace <- -0.6
+effect_changeHbA1c_SGLT2 <- 0.5
+effect_SGLT2_changeHbA1c <- 0.4
 
 scenarios <- tibble::tibble(
   scenario = c(
     "effect_outcome",
     "confounding_no_effect_outcome",
-    "less_irregular_visits",
-    "confounding_effect_outcome"
+    "less_visits",
+    "less_visits_sd_1",
+    "confounding_effect_outcome",
+    "complex_setting",
+    "complex_setting_more_visits"
   ),
   modify_fn = list(
-    function(dps) {
-      dps$parameter_values <- modifyList(dps$parameter_values,
-        list(effect_GLP1_MACE = 1,
-             effect_SGLT2_MACE = -2,
-             scale_MACE = 0.002,
-             scale_death = 0.001))
+      function(dps) {
+      dps$parameter_values$effect_SGLT2_mace <- effect_SGLT2_mace
       dps
     },
     function(dps) {
-      dps$parameter_values <- modifyList(dps$parameter_values,
-        list(scale_MACE = 0.002,
-             scale_death = 0.001))
-      dps$parameter_values$effect_changeHbA1c_SGLT2 <- 0.5
-      dps$parameter_values$effect_changeHbA1c_GLP1 <- -0.5
-      dps$parameter_values$effect_SGLT2_changeHbA1c <- 0.7
-      dps$parameter_values$effect_GLP1_changeHbA1c <- -0.7
+      dps$parameter_values$effect_changeHbA1c_SGLT2 <- effect_changeHbA1c_SGLT2
+      dps$parameter_values$effect_SGLT2_changeHbA1c <- effect_SGLT2_changeHbA1c
       dps
     },
     function(dps) {
-      dps$parameter_values <- modifyList(dps$parameter_values,
-        list(effect_GLP1_MACE = 1,
-             effect_SGLT2_MACE = -2,
-             scale_MACE = 0.002,
-             scale_death = 0.001))
-      dps$visit_schedule <- modifyList(dps$visit_schedule, list(sd = 0.001))
+      dps$parameter_values$effect_SGLT2_mace <- effect_SGLT2_mace
+      dps$visit_schedule$mean <- 6
+      dps$visit_schedule$sd <- 0
       dps
     },
     function(dps) {
-      dps$parameter_values <- modifyList(dps$parameter_values,
-        list(effect_GLP1_MACE = 1,
-             effect_SGLT2_MACE = -2,
-             scale_MACE = 0.002,
-             scale_death = 0.001))
-      dps$parameter_values$effect_changeHbA1c_SGLT2 <- 0.5
-      dps$parameter_values$effect_changeHbA1c_GLP1 <- -0.5
-      dps$parameter_values$effect_SGLT2_changeHbA1c <- 0.7
-      dps$parameter_values$effect_GLP1_changeHbA1c <- -0.7
+      dps$parameter_values$effect_SGLT2_mace <- effect_SGLT2_mace
+      dps$visit_schedule$mean <- 6
+      dps
+    },
+    function(dps) {
+      dps$parameter_values$effect_changeHbA1c_SGLT2 <- effect_changeHbA1c_SGLT2
+      dps$parameter_values$effect_SGLT2_changeHbA1c <- effect_SGLT2_changeHbA1c
+      dps$parameter_values$effect_SGLT2_mace <- effect_SGLT2_mace
+      dps
+    },
+    function(dps) {
+        dps
+    },
+    function(dps) {
+      dps$visit_schedule$mean <- 1.5
+      dps$visit_schedule$sd <- 0.2
       dps
     }
-  )
+  ),
+  complex = list(FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE)
 )
+
+time_horizon <- 12
+intervals <- c(6, time_horizon)
 
 list(
   tar_map(
@@ -105,7 +112,7 @@ list(
     tar_target(
       diabetes_polypharmacy_setting,
       {
-        dps <- get_diabetes_polypharmacy_setting()
+        dps <- get_diabetes_simulation_setting(complex = complex)
         modify_fn(dps)
       }
     ),
@@ -126,21 +133,31 @@ list(
       calculate_interventional_risks(
         n = 1000000,
         diabetes_polypharmacy_setting = diabetes_polypharmacy_setting,
-        intervention = list("GLP1" = 1, "SGLT2" = 1, "DPP4" = 1),
-        time_horizons = seq(0, 60, 6)[-1],
-        primary_event = "MACE"
-      ),
-      cue = tar_cue(mode = "never")
+        intervention = list("SGLT2" = 1),
+        time_horizons = intervals,
+        terminal_events = c("death", "mace", "dropout"),
+        primary_event = "mace"
+      )
     ),
 
     ## --- RTMLE estimator on a single simulated dataset ---
     tar_target(
       rtmle,
       run_rtmle_diabetes_population(
-        diabetes_population = diabetes_population,
-        time_horizons = seq(6, 60, 6),
-        intervals = seq(0, 60, 6),
-        learner = "learn_glmnet"
+          diabetes_population = diabetes_population,
+          time_horizons = intervals,
+          intervals = c(0, intervals),
+          learner = "learn_glmnet",
+          regimens = "SGLT2",
+          tv_covs = c("changeHbA1c", "SGLT2"),
+          exclusion_rules = NULL,
+          baseline_covs = "HbA1c",
+          name_outcome = "mace",
+          name_competing = "death",
+          names_intermediate = NULL,
+          treatment_format = "date_value",
+          method_covariate_discretization = "locf",
+          method_treatment_discretization = "locf"
       )
     ),
 
@@ -149,14 +166,19 @@ list(
       ice_ipcw,
       run_ice_ipcw(
         data = diabetes_population,
-        time_horizons = seq(6, 60, 6),
-        regimens = c("GLP1", "SGLT2", "DPP4"),
+        time_horizons = intervals,
+        regimens = "SGLT2",
         model_pseudo_outcome = "oipcw_expit",
         penalize_pseudo_outcome = FALSE,
-        primary_event = "MACE",
-        contrasts = TRUE,
-        contrasts_reference = "SGLT2",
-        verbose = FALSE
+        primary_event = "mace",
+        contrasts = FALSE,
+        competing_event = "death",
+        penalize_treatment = TRUE,
+        time_confounders = if (complex) c("changeHbA1c", "SGLT2_percentage") else "changeHbA1c",
+        exclude_variables = if (complex) "SGLT2_percentage" else NULL,
+        baseline_confounders = "HbA1c",
+        verbose = TRUE,
+        tmle_update = TRUE
       )
     ),
 
@@ -166,60 +188,82 @@ list(
       plot_estimate(
         estimates_rtmle = rtmle,
         estimates_ice_ipcw = ice_ipcw,
-        intervals = seq(0, 60, 6),
+        intervals = c(0, intervals),
         true_values = true_values
       )
-    ),
+    )
 
     ## --- Simulations ---
-    tar_rep(
-      sim,
-      {
-        # --- Data generating process ---
-        diabetes_population <- do.call(
-          "simulate_cohort",
-          c(list(n = 2000), diabetes_polypharmacy_setting)
-        )
+    ## tar_rep(
+    ##     sim,
+    ##     {
+    ##         # --- Data generating process ---
+    ##         diabetes_population <- do.call(
+    ##             "simulate_cohort",
+    ##             c(list(n = 2000), diabetes_polypharmacy_setting)
+    ##         )
 
-        # --- Estimators ---
-        rtmle <- run_rtmle_diabetes_population(
-          diabetes_population = diabetes_population,
-          time_horizons = 48,
-          intervals = seq(0, 60, 6),
-          learner = "learn_glmnet"
-        )
-        rtmle <- summary(rtmle)
+    ##         # --- Estimators ---
+    ##         rtmle <- run_rtmle_diabetes_population(
+    ##             diabetes_population = diabetes_population,
+    ##             time_horizons = time_horizon,
+    ##             intervals = c(0, intervals),
+    ##             regimens = "SGLT2",
+    ##             tv_covs = c("changeHbA1c", "SGLT2"),
+    ##             exclusion_rules = NULL,
+    ##             baseline_covs = "HbA1c",
+    ##             name_outcome = "mace",
+    ##             name_competing = "death",
+    ##             names_intermediate = NULL,
+    ##             treatment_discretization_scheme = "locf",
+    ##             learner = "learn_glmnet"
+    ##         )
+    ##         rtmle <- summary(rtmle)
 
-        ice_ipcw <- run_ice_ipcw(
-          data = diabetes_population,
-          time_horizons = 48,
-          regimens = c("GLP1", "SGLT2", "DPP4"),
-          model_pseudo_outcome = "oipcw_expit",
-          penalize_pseudo_outcome = FALSE,
-          primary_event = "MACE",
-          contrasts = TRUE,
-          contrasts_reference = "SGLT2",
-          verbose = FALSE
-        )
+    ##         ice_ipcw <- run_ice_ipcw(
+    ##             data = diabetes_population,
+    ##             time_horizons = time_horizon,
+    ##             regimens = "SGLT2",
+    ##             model_pseudo_outcome = "oipcw_expit",
+    ##             penalize_pseudo_outcome = FALSE,
+    ##             primary_event = "mace",
+    ##             contrasts = FALSE,
+    ##             competing_event = "death",
+    ##             penalize_treatment = FALSE,
+    ##             baseline_confounders = "HbA1c",
+    ##             time_confounders = if (complex) c("changeHbA1c", "SGLT2_percentage") else "changeHbA1c",
+    ##             exclude_variables = if (complex) "SGLT2_percentage" else NULL,
+    ##             verbose = FALSE,
+    ##             tmle_update = TRUE
+    ##         )
 
-        list(
-          rtmle = rtmle,
-          ice_ipcw = ice_ipcw
-        )
-      },
-      iteration = "list",
-      reps = 20, 
-      batches = 100
-    )
-  ),
-  ## Write the simulated data to disk for RTMLE package
-  tar_target(diabetes_sim_data, {
-      ## If data directory doesn't exist, create it
-      if (!dir.exists("data")) {
-          dir.create("data")
-      }
-      make_and_write_diabetes_data(file_name = "data/diabetes_sim_data.csv", diabetes_polypharmacy_setting = diabetes_polypharmacy_setting_effect_outcome)
-  }, format = "file")
+    ##         list(
+    ##             rtmle = rtmle,
+    ##             ice_ipcw = ice_ipcw
+    ##         )
+    ##     },
+    ##     iteration = "list",
+    ##     reps = 50, 
+    ##     batches = 100,
+    ##     cue = tar_cue(mode = "never")
+    ## ),
+
+    ## --- Summarize simulation results ---
+    ## tar_target(
+    ##     results_rtmle,
+    ##     purrr::map_dfr(sim, ~ map_dfr(.x, "rtmle"))
+    ## ),
+
+    ## tar_target(
+    ##     results_ice_ipcw,
+    ##     purrr::map_dfr(sim, ~ map_dfr(.x, c("ice_ipcw", "results")))
+    ## ),
+
+    ## --- Plot simulation results ---
+    ## tar_target(
+    ##     plot_simulation_results, plot_sims(results_rtmle, results_ice_ipcw, true_values)
+    ## )
+  )
 )
 
 ######################################################################
