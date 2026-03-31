@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 16 2026 (11:52) 
 ## Version: 
-## Last-Updated: Mar 25 2026 (20:28) 
+## Last-Updated: Mar 31 2026 (16:48) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 191
+##     Update #: 213
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -18,10 +18,14 @@
 run_ice_ipcw <- function(data,
                          time_horizons,
                          primary_event = "MACE",
+                         competing_event = "death",
                          regimens = c("GLP1", "SGLT2", "DPP4"),
                          contrasts = TRUE,
                          contrasts_reference = "SGLT2",
                          penalize_treatment = TRUE,
+                         baseline_confounders = c("age", "sex", "HbA1c", "U"),
+                         time_confounders = "changeHbA1c",
+                         exclude_variables = NULL,
                          verbose = FALSE, ...){  ## arguments to be passed to debias_ice_ipcw
     ## Check if contICEIPCW is installed, if not install it from GitHub
     if (!requireNamespace("contICEIPCW", quietly = TRUE)) {
@@ -34,19 +38,14 @@ run_ice_ipcw <- function(data,
     }
     ## require(contICEIPCW) ##devtools::install_github("jsohlendorff/contICEIPCW")
     setkeyv(data, c("id", "time"))
-    baseline_data <- data[time == 0, c("id", "sex", "age", "HbA1c", "U", regimens), with = FALSE]
+    baseline_data <- data[time == 0, c("id", baseline_confounders, regimens), with = FALSE]
     setnames(baseline_data, regimens, paste0(regimens, "_0"))
-    timevar_data <- data[time > 0, c("id", "time", "event", "changeHbA1c", regimens), with = FALSE]
+    timevar_data <- data[time > 0, c("id", "time", "event", time_confounders, regimens), with = FALSE]
     ## Change labels visit, MACE, death, dropout to A, Y, D, C
     timevar_data[event == "visit", event := "A"]
-    if (primary_event == "MACE") {
-        timevar_data[event == "MACE", event := "Y"]
-        timevar_data[event == "death", event := "D"]
-    } else if (primary_event == "death"){
-        timevar_data[event == "MACE", event := "D"]
-        timevar_data[event == "death", event := "Y"]
-    } else {
-        stop("Unknown primary event")
+    timevar_data[event == primary_event, event := "Y"]
+    if (!is.null(competing_event)){
+        timevar_data[event == competing_event, event := "D"]
     }
     timevar_data[event == "dropout", event := "C"]
     ## Remove events after event==Y;
@@ -71,8 +70,8 @@ run_ice_ipcw <- function(data,
                                       data = list(baseline_data = baseline_regimen,
                                                   timevarying_data = data_regimen),
                                       time_horizons = time_horizons,
-                                      time_covariates = c("changeHbA1c", "A", other_regimens),
-                                      baseline_covariates =  c("age", "A_0", "sex", "HbA1c", "U"),
+                                      time_covariates = c(time_confounders, "A", other_regimens),
+                                      baseline_covariates =  c(baseline_confounders, "A_0"),
                                       marginal_censoring = TRUE,
                                       verbose = verbose
                                   )
@@ -82,18 +81,17 @@ run_ice_ipcw <- function(data,
                                         penalize_treatment = penalize_treatment,
                                         model_hazard = "learn_coxph",
                                         verbose = verbose,
-                                        exclude_latest_covariate = other_regimens ## Time-ordering of these variable and the treatment is unclear, so remove the latest values 
+                                        exclude_latest_covariate = c(other_regimens, exclude_variables)
                                     )
         est <- contICEIPCW::debias_ice_ipcw(
                                 prepared_data = prop_scores,
-                                penalize_pseudo_outcome = penalize_pseudo_outcome,
                                 model_hazard = NULL,
                                 penalize_hazard = FALSE,
                                 conservative = TRUE,
                                 static_intervention = 1,
-                                tmle_update = TRUE,
                                 return_ic = TRUE,
-                                verbose = verbose
+                                verbose = verbose,
+                                ...
                             )
         est$result$treatment_name <- regimen
         est$treatment_name <- regimen 
@@ -101,9 +99,8 @@ run_ice_ipcw <- function(data,
     }
     results <- rbindlist(lapply(res, function(x) x$result))
     if (contrasts) {
-            res_contrasts <- contICEIPCW::compare_to_reference(
-                     reference_group = contrasts_reference,
-                     res$SGLT2, res$GLP1, res$DPP4
+        res_contrasts <- do.call(contICEIPCW::compare_to_reference,
+                                 c(lapply(res, function(x) x$result), list(reference_name = contrasts_reference))
                  )
     } else {
         res_contrasts <- NULL

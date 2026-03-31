@@ -268,6 +268,7 @@ simulate_cohort <- function(n,
     }
     ## Remove events after max_follow
     event_history[time>max_follow, c("time","event") := list(max_follow,"dropout")]
+    event_history <- event_history[time < max_follow | (time == max_follow & event %in% c("dropout", "death", "MACE"))]
     if (latent_time_varying_covariates){
         ## For subjects with covariate updates, we need to carry forward the last covariate values until max_follow
         event_history <- event_history[event != "covariate_update"]

@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 18 2026 (16:33) 
 ## Version: 
-## Last-Updated: Mar 20 2026 (16:13) 
+## Last-Updated: Mar 30 2026 (20:33) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 19
+##     Update #: 22
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -18,6 +18,7 @@ calculate_interventional_risks <- function(n,
                                            diabetes_polypharmacy_setting,
                                            intervention,
                                            time_horizons,
+                                           terminal_events = c("death", "MACE", "dropout"),
                                            primary_event) {
     out <- list()
     for (treatment in names(intervention)) {
@@ -38,17 +39,10 @@ calculate_interventional_risks <- function(n,
     }
     d <- rbindlist(out,use.names = TRUE)
     setkeyv(d, c("intervention", "id", "time"))
-    terminal_events <- c("death", "MACE", "dropout")
     data_terminal_events <- d[event %chin% terminal_events, list(time = time[1], event = event[1]), keyby = c("id", "intervention")]
     out <- list()
     for (time_horizon in time_horizons) {
-        if (primary_event == "MACE") {
-            true_values <- data_terminal_events[, .(risk = mean(time <= time_horizon & event == "MACE")), by = "intervention"]
-        } else if (primary_event == "death") {
-            true_values <- data_terminal_events[, .(risk = mean(time <= time_horizon & event == "death")), by = "intervention"]
-        } else {
-            stop("Unknown primary event")
-        }
+        true_values <- data_terminal_events[, .(risk = mean(time <= time_horizon & event == primary_event)), by = "intervention"]
         true_values[, time_horizon := time_horizon]
         out[[as.character(time_horizon)]] <- true_values
     }
