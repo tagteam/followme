@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 16 2026 (11:52) 
 ## Version: 
-## Last-Updated: Mar 31 2026 (16:48) 
+## Last-Updated: Apr  1 2026 (14:31) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 213
+##     Update #: 247
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -26,6 +26,9 @@ run_ice_ipcw <- function(data,
                          baseline_confounders = c("age", "sex", "HbA1c", "U"),
                          time_confounders = "changeHbA1c",
                          exclude_variables = NULL,
+                         model_pseudo_outcomes = "oipcw_expit",
+                         lag_propensity = NULL,
+                         lag_pseudo_outcome = NULL,
                          verbose = FALSE, ...){  ## arguments to be passed to debias_ice_ipcw
     ## Check if contICEIPCW is installed, if not install it from GitHub
     if (!requireNamespace("contICEIPCW", quietly = TRUE)) {
@@ -66,7 +69,7 @@ run_ice_ipcw <- function(data,
         baseline_regimen <- copy(baseline_data)
         setnames(data_regimen, regimen, "A")
         setnames(baseline_regimen, paste0(regimen, "_0"), "A_0")
-        prep_data <- contICEIPCW::prepare_data(
+        prep_data <- prepare_data(
                                       data = list(baseline_data = baseline_regimen,
                                                   timevarying_data = data_regimen),
                                       time_horizons = time_horizons,
@@ -75,15 +78,21 @@ run_ice_ipcw <- function(data,
                                       marginal_censoring = TRUE,
                                       verbose = verbose
                                   )
-        prop_scores <- contICEIPCW::propensity_scores(
+        prop_scores <- propensity_scores(
                                         prepared_data = prep_data,
                                         model_treatment = "learn_glm_logistic",
                                         penalize_treatment = penalize_treatment,
                                         model_hazard = "learn_coxph",
                                         verbose = verbose,
-                                        exclude_latest_covariate = c(other_regimens, exclude_variables)
+                                        exclude_latest_covariate = c(other_regimens, exclude_variables),
+                                        lag = lag_propensity
                                     )
-        est <- contICEIPCW::debias_ice_ipcw(
+        est <- list()
+        for (m in model_pseudo_outcomes){
+            if (verbose){
+                message(paste0("Running ICE-IPCW for regimen ", regimen, " and pseudo-outcome model ", m))
+            }
+            out <- debias_ice_ipcw(
                                 prepared_data = prop_scores,
                                 model_hazard = NULL,
                                 penalize_hazard = FALSE,
@@ -91,17 +100,22 @@ run_ice_ipcw <- function(data,
                                 static_intervention = 1,
                                 return_ic = TRUE,
                                 verbose = verbose,
-                                ...
-                            )
-        est$result$treatment_name <- regimen
-        est$treatment_name <- regimen 
+                                model_pseudo_outcome = m,
+                                lag = lag_pseudo_outcome,
+                                ...)
+            out$result[, model_pseudo_outcome := m]
+            out$result[, treatment_name := regimen]
+            out$treatment_name <- regimen
+            est[[m]] <- out
+        }
         res[[regimen]] <- est
     }
-    results <- rbindlist(lapply(res, function(x) x$result))
+    results <- rbindlist(lapply(res, function(x) rbindlist(lapply(x, function(y) y$result))))
     if (contrasts) {
+        ## FIXME
+        stop("Contrasts broken")
         res_contrasts <- do.call(contICEIPCW::compare_to_reference,
-                                 c(lapply(res, function(x) x$result), list(reference_name = contrasts_reference))
-                 )
+                                 c(lapply(res, function(x) x$result), list(reference_name = contrasts_reference)))
     } else {
         res_contrasts <- NULL
     }
