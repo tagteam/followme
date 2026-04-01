@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 18 2026 (16:33) 
 ## Version: 
-## Last-Updated: Mar 30 2026 (20:33) 
+## Last-Updated: Apr  1 2026 (15:41) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 22
+##     Update #: 32
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -23,11 +23,18 @@ calculate_interventional_risks <- function(n,
     out <- list()
     for (treatment in names(intervention)) {
         set_intervention <- function(X){
-            x <- data.table("dummy" = rep(intervention[[1]],NROW(X)))
-            setnames(x,"dummy",treatment)
-            x
+            X[, (treatment) := intervention[[treatment]]]
+            X
         }
-        diabetes_polypharmacy_setting$post_baseline_visit_hook <- set_intervention
+        if (is.null(diabetes_polypharmacy_setting$post_baseline_visit_hook)) {
+            diabetes_polypharmacy_setting$post_baseline_visit_hook <- set_intervention
+        } else {
+            old_hook <- diabetes_polypharmacy_setting$post_baseline_visit_hook
+            diabetes_polypharmacy_setting$post_baseline_visit_hook <- function(X){
+                X <- old_hook(X)
+                set_intervention(X)
+            }
+        }
         intervention_arg <- list()
         intervention_arg[[treatment]] <- intervention[[treatment]]
         treatment_dt <- do.call("simulate_cohort",

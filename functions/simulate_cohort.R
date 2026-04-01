@@ -16,6 +16,7 @@ simulate_cohort <- function(n,
                             parameter_values, 
                             intervention = NULL,
                             latent_time_varying_covariates = FALSE,
+                            cleanup_hook = NULL,
                             regime = NULL){
     if (!is.null(seed)) set.seed(seed) 
     ##
@@ -233,17 +234,18 @@ simulate_cohort <- function(n,
                 j = "id",
                 value = NULL
             )
+
+            ## adding the updated treatment status
+            for (xx in names(update_treatment)){
+                data.table::set(update_visit, j = xx, value = update_treatment[[xx]])
+            }
+
             ## post-visit hook
             if (is.function(post_visit_hook)){
                 update_visit <- post_visit_hook(update_event_history = update_visit,
                                                 update_treatment = update_treatment,
                                                 update_measurements = update_measurements,
                                                 event_history = event_history)
-            }
-
-            ## adding the updated treatment status
-            for (xx in names(update_treatment)){
-                data.table::set(update_visit, j = xx, value = update_treatment[[xx]])
             }
         } else {
             update_visit <- data.table(time = numeric(), id = numeric())
@@ -272,6 +274,9 @@ simulate_cohort <- function(n,
     if (latent_time_varying_covariates){
         ## For subjects with covariate updates, we need to carry forward the last covariate values until max_follow
         event_history <- event_history[event != "covariate_update"]
+    }
+    if (is.function(cleanup_hook)){
+        event_history <- cleanup_hook(X = event_history)
     }
     setcolorder(event_history,"id")
     return(event_history[])
