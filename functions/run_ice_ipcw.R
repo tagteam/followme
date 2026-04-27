@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 16 2026 (11:52) 
 ## Version: 
-## Last-Updated: Apr  1 2026 (14:31) 
+## Last-Updated: Apr 24 2026 (14:08) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 247
+##     Update #: 251
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -29,6 +29,7 @@ run_ice_ipcw <- function(data,
                          model_pseudo_outcomes = "oipcw_expit",
                          lag_propensity = NULL,
                          lag_pseudo_outcome = NULL,
+                         K = NULL,
                          verbose = FALSE, ...){  ## arguments to be passed to debias_ice_ipcw
     ## Check if contICEIPCW is installed, if not install it from GitHub
     if (!requireNamespace("contICEIPCW", quietly = TRUE)) {
@@ -70,14 +71,15 @@ run_ice_ipcw <- function(data,
         setnames(data_regimen, regimen, "A")
         setnames(baseline_regimen, paste0(regimen, "_0"), "A_0")
         prep_data <- prepare_data(
-                                      data = list(baseline_data = baseline_regimen,
-                                                  timevarying_data = data_regimen),
-                                      time_horizons = time_horizons,
-                                      time_covariates = c(time_confounders, "A", other_regimens),
-                                      baseline_covariates =  c(baseline_confounders, "A_0"),
-                                      marginal_censoring = TRUE,
-                                      verbose = verbose
-                                  )
+            data = list(baseline_data = baseline_regimen,
+                        timevarying_data = data_regimen),
+            time_horizons = time_horizons,
+            time_covariates = c(time_confounders, "A", other_regimens),
+            baseline_covariates =  c(baseline_confounders, "A_0"),
+            marginal_censoring = TRUE,
+            verbose = verbose,
+            last_non_terminal_event = K
+        )
         prop_scores <- propensity_scores(
                                         prepared_data = prep_data,
                                         model_treatment = "learn_glm_logistic",

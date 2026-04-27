@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 30 2026 (19:37) 
 ## Version: 
-## Last-Updated: Apr  1 2026 (16:16) 
+## Last-Updated: Apr 24 2026 (15:06) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 82
+##     Update #: 109
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -18,43 +18,16 @@ get_diabetes_simulation_setting <- function(complex = FALSE){
     if (complex){
         ## Percentage of time treated 3 months 
         percentage_treat_hook <- function(update_event_history, update_treatment, update_measurements, event_history){
-
-            test <- merge(
-                update_event_history[, .(id, time_ref = time)],
-                event_history[, c("id", "time", names(update_treatment)), with = FALSE],
-                by = "id",
-                allow.cartesian = TRUE
-            )
-
-            # Relative time capped at 3
-            test[, time := pmin(time_ref - time, 3)]
-
-            # Order by id and time
-            setorder(test, id, time)
-
-            test[, keep := {
-                remove <- time >= 3
-                prev_remove <- c(FALSE, remove[-.N])
-                !remove | (remove & !prev_remove)
-            }, by = id]
-
-            test <- test[keep == TRUE]
-
-            test[, SGLT2_weight := {
-                dt <- c(time[1L], diff(time))
-                SGLT2 * dt
-            }, by = id]
-
-            # Aggregate
-            test <- test[, .(SGLT2_percentage = sum(SGLT2_weight) / 3), by = id]
-
-            # Remove if exists (safe)
-            update_event_history[, SGLT2_percentage := NULL]
-
-            # Merge result back
-            merge(update_event_history, test, by = "id")
+            ## dt <- rbind(event_history[id %in% unique(update_event_history$id)], update_event_history)
+            dt <- rbind(event_history[unique(update_event_history[, "id"]),on = "id"], update_event_history)
+            ## dt <- rbind(event_history[!update_event_history, on = "id"], update_event_history)
+            ## dt <- rbind(event_history, update_event_history)
+            setkey(dt, id, time)
+            dt <- intervention_hook_percentage_sglt2_long(dt, delay = 3, treatment_name = "SGLT2")
+            update_event_history <- merge(update_event_history, dt, by = "id", all.y = TRUE)
+            update_event_history <- update_event_history[, SGLT2_percentage := time_treated][, time_treated := NULL]
+            update_event_history[]
         }
-
 
         ## Lag variables for treatment and measurements:
         ## GLP1 -> GLP1

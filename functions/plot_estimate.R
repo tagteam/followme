@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 26 2026 (11:16) 
 ## Version: 
-## Last-Updated: Apr  1 2026 (13:38) 
+## Last-Updated: Apr 23 2026 (17:31) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 77
+##     Update #: 82
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -17,6 +17,7 @@
 
 plot_estimate <- function(estimates_rtmle,
                           estimates_ice_ipcw,
+                          estimates_csc,
                           intervals = seq(0, 60, 6),
                           true_values) {
 
@@ -55,8 +56,12 @@ plot_estimate <- function(estimates_rtmle,
   true_dt <- copy(true_values)
   true_dt[, Protocol := paste0("Always_", intervention)]
 
+  # --- CSC ---
+  csc_dt <- estimates_csc[, .(Protocol = true_dt$Protocol[1], Time_horizon = time_horizon, Estimate = estimate)]
+  csc_dt[, Type := "Naive Cause-Specific Cox"]
+    
   # --- Combine ---
-  plot_data <- rbindlist(list(rtmle_dt, ice_dt, ipw_dt), use.names = TRUE, fill = TRUE)
+  plot_data <- rbindlist(list(rtmle_dt, ice_dt, ipw_dt, csc_dt), use.names = TRUE, fill = TRUE)
 
   # --- Plot ---
   ggplot(plot_data, aes(x = Time_horizon, y = Estimate)) +
