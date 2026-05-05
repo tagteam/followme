@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 30 2026 (19:37) 
 ## Version: 
-## Last-Updated: Apr 24 2026 (15:06) 
+## Last-Updated: May  4 2026 (11:09) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 109
+##     Update #: 152
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -44,7 +44,7 @@ get_diabetes_simulation_setting <- function(complex = FALSE){
                 X[,SGLT2:=1*(start_SGLT2 == 1)]
                 X[, start_SGLT2 := NULL]
                 X[, SGLT2lag := SGLT2]
-                X[, SGLT2_percentage := 0]
+                ## X[, SGLT2_percentage := 0]
                 X[]
             },
             absorbing_events = list(death = "Weibull", dropout = "Weibull", mace = "Weibull"),
@@ -67,8 +67,9 @@ get_diabetes_simulation_setting <- function(complex = FALSE){
 
                 ## Change in HbA1c parameters:
                 intercept_changeHbA1c = 0,
+                var_changeHbA1c = 3,
                 effect_HbA1c_changeHbA1c = 0,
-                effect_changeHbA1clag_changeHbA1c = 0.1,
+                effect_changeHbA1clag_changeHbA1c = 0.2,
                 effect_SGLT2_changeHbA1c = 0.1,
 
                 ## Death 
@@ -83,22 +84,22 @@ get_diabetes_simulation_setting <- function(complex = FALSE){
                 effect_SGLT2_dropout = 0,
 
                 ## MACE
-                scale_mace = 0.000315*6,
+                scale_mace = 0.000315*8,
                 effect_HbA1c_mace = 0.025,
-                effect_SGLT2_mace = 0,
-                effect_SGLT2_percentage_mace = -1,
-                effect_changeHbA1c_mace = 0.025,
+                effect_SGLT2_mace = -1,
+                ## effect_SGLT2_percentage_mace = -1,
+                effect_changeHbA1c_mace = 0.25,
 
                 ## Effects on SGLT2 treatment:
-                intercept_SGLT2 = -47*0.8,
-                effect_SGLT2lag_SGLT2 = 0.2,
-                effect_changeHbA1c_SGLT2 = 0.8,
-                effect_HbA1c_SGLT2 = 0.8
+                intercept_SGLT2 = -0.5,
+                effect_SGLT2lag_SGLT2 = 0.04,
+                effect_changeHbA1c_SGLT2 = -0.15,
+                effect_HbA1c_SGLT2 = 0.04
             ),
             post_visit_hook = function(update_event_history, update_treatment, update_measurements, event_history) {
                 update_event_history <- lag_variable_hook(update_event_history, update_treatment, update_measurements, event_history)
                 ## update_event_history <- hook_hba1c(update_event_history, update_treatment, update_measurements, event_history)
-                update_event_history <- percentage_treat_hook(update_event_history, update_treatment, update_measurements, event_history)
+                ## update_event_history <- percentage_treat_hook(update_event_history, update_treatment, update_measurements, event_history)
                 return(update_event_history)
             },
             post_baseline_variables_hook = function(X){
@@ -106,8 +107,8 @@ get_diabetes_simulation_setting <- function(complex = FALSE){
                 X[]
             },
             cleanup_hook = function(X){
-                X[, HbA1c := changeHbA1c + HbA1c]
-                X[, c("SGLT2lag", "changeHbA1clag", "changeHbA1c") := NULL]
+                ## X[, HbA1c := changeHbA1c + HbA1c]
+                X[, c("SGLT2lag", "changeHbA1clag") := NULL]
                 X[]
             }
         )
@@ -132,10 +133,11 @@ get_diabetes_simulation_setting <- function(complex = FALSE){
                 var_HbA1c = 3,
                 intercept_start_SGLT2 = 1,
                 intercept_changeHbA1c = 0,
-                intercept_SGLT2 = 0.6,
+                var_changeHbA1c = 3,
+                intercept_SGLT2 = 1.4,
                 scale_death = 0.0003*5,
                 scale_dropout = 0.0002*5.5,
-                scale_mace = 0.00045*8,
+                scale_mace = 0.00045*10,
                 effect_HbA1c_start_SGLT2 = 0,
                 effect_HbA1c_SGLT2 = 0,
                 effect_HbA1c_changeHbA1c = 0,

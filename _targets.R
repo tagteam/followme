@@ -3,9 +3,9 @@
 ## Author: Thomas Alexander Gerds
 ## Created: okt 23 2025 (15:22) 
 ## Version: 
-## Last-Updated: Apr 27 2026 (15:35) 
+## Last-Updated: May  5 2026 (09:38) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 872
+##     Update #: 1054
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -43,7 +43,7 @@ if (dir.exists("/projects/biostat01/people/snf991/followme")) {
     ## )
     options(clustermq.scheduler = "slurm",
             clustermq.template = "/projects/biostat01/people/snf991/followme/clu_temp",
-            clustermq.defaults = list(log_file="slurm.log"))
+            clustermq.defaults = list(log_file="slurm.log", job_name = "continuous_time_simulation"))
     controller <- NULL
 } else {
     controller <- crew_controller_local(workers = 4,
@@ -67,64 +67,43 @@ K_vary <- seq(0, 7, by = 1)
 n_values <- c(200, 500, 1000, 2000)
 time_horizon <- 12
 intervals <- c(6, time_horizon)
-cue_test <- tar_cue(mode = "thorough")
+cue_test <- tar_cue(mode = "never")
 cue_true <- tar_cue(mode = "never")
 cue_sim <- tar_cue(mode = "never")
-
+scenario_names <- c(
+                             "increase_censoring", #REALLY: higher censoring
+                             "effect_outcome", #no censoring
+                             "confounding_effect_outcome", #no censoring
+                             "confounding_no_effect_outcome", #no censoring
+                             "less_visits", #no censoring
+                             "less_visits_sd_large", #no censoring
+                             "complex_setting", #
+                             "complex_setting_more_visits" #
+                         )
 ## NOTE: Dropout = right-censoring
 scenarios <- tibble::tibble(
-                         scenario = c(
-                             "complex_setting",
-                             "complex_setting_more_visits",
-                             "higher_dropout", #REALLY: higher censoring
-                             "effect_outcome_no_dropout",
-                             "confounding_effect_outcome_no_dropout",
-                             "confounding_no_effect_outcome_no_dropout",
-                             "less_visits_no_dropout",
-                             "less_visits_sd_large_no_dropout",
-                             "confounding_no_effect_outcome_stronger_confounding",
-                             "confounding_effect_outcome_stronger_confounding",
-                             "less_visits_sd_extreme_no_dropout"
-                         ),
+                         scenario = scenario_names,
                          modify_fn = list(
                              function(dps) {
+                                 dps$parameter_values$scale_dropout <- 0.0002*15
                                  dps
                              },
                              function(dps) {
-                                 dps$visit_schedule$mean <- 1.5
-                                 dps$visit_schedule$sd <- 0.2
-                                 dps$parameter_values$effect_SGLT2_percentage_mace <- -1.3
-                                 dps$parameter_values$scale_death <- dps$parameter_values$scale_death*1.2
-                                 dps$parameter_values$scale_dropout <- dps$parameter_values$scale_dropout*2
-                                 dps$parameter_values$scale_mace <- dps$parameter_values$scale_mace*1.4
-                                 dps$parameter_values$effect_HbA1c_mace <- 0.04
-                                 dps$parameter_values$effect_changeHbA1c_mace <- 0.04
-                                 dps$parameter_values$effect_HbA1c_SGLT2 <- 0.8
-                                 dps$parameter_values$effect_changeHbA1c_SGLT2 <- 0.8
-                                 dps$parameter_values$effect_changeHbA1clag_changeHbA1c <- 0.2
-                                 dps$parameter_values$effect_SGLT2_changeHbA1c <- 0.3
+                                 dps$parameter_values$effect_SGLT2_mace <- effect_SGLT2_mace
+                                 dps$absorbing_events$dropout <- NULL
+                                 dps
+                             },
+                             function(dps) {
+                                 dps$parameter_values$effect_changeHbA1c_SGLT2 <- -0.15
+                                 dps$parameter_values$effect_changeHbA1c_mace <- 0.5
+                                 dps$parameter_values$effect_SGLT2_mace <- effect_SGLT2_mace
+                                 dps$absorbing_events$dropout <- NULL
+                                 dps
+                             },
+                             function(dps) {
+                                 dps$parameter_values$effect_changeHbA1c_SGLT2 <- -0.15
+                                 dps$parameter_values$effect_changeHbA1c_mace <- 0.5
                                  dps$parameter_values$effect_SGLT2_mace <- 0
-                                 dps
-                             },
-                             function(dps) {
-                                 dps$parameter_values$scale_dropout <- 0.0002*12
-                                 dps
-                             },
-                             function(dps) {
-                                 dps$parameter_values$effect_SGLT2_mace <- effect_SGLT2_mace
-                                 dps$absorbing_events$dropout <- NULL
-                                 dps
-                             },
-                             function(dps) {
-                                 dps$parameter_values$effect_changeHbA1c_SGLT2 <- effect_changeHbA1c_SGLT2
-                                 dps$parameter_values$effect_SGLT2_changeHbA1c <- effect_SGLT2_changeHbA1c
-                                 dps$parameter_values$effect_SGLT2_mace <- effect_SGLT2_mace
-                                 dps$absorbing_events$dropout <- NULL
-                                 dps
-                             },
-                             function(dps) {
-                                 dps$parameter_values$effect_changeHbA1c_SGLT2 <- effect_changeHbA1c_SGLT2
-                                 dps$parameter_values$effect_SGLT2_changeHbA1c <- effect_SGLT2_changeHbA1c
                                  dps$absorbing_events$dropout <- NULL
                                  dps
                              },
@@ -143,26 +122,37 @@ scenarios <- tibble::tibble(
                                  dps
                              },
                              function(dps) {
-                                 dps$parameter_values$effect_changeHbA1c_SGLT2 <- 2*effect_changeHbA1c_SGLT2
-                                 dps$parameter_values$effect_SGLT2_changeHbA1c <- 2*effect_SGLT2_changeHbA1c
                                  dps
                              },
                              function(dps) {
-                                 dps$parameter_values$effect_changeHbA1c_SGLT2 <- 2*effect_changeHbA1c_SGLT2
-                                 dps$parameter_values$effect_SGLT2_changeHbA1c <- 2*effect_SGLT2_changeHbA1c
-                                 dps$parameter_values$effect_SGLT2_mace <- effect_SGLT2_mace
-                                 dps
-                             },
-                             function(dps) {
-                                 dps$parameter_values$effect_SGLT2_mace <- effect_SGLT2_mace
-                                 dps$visit_schedule$mean <- 6
-                                 dps$visit_schedule$sd <- 3.2
-                                 dps$absorbing_events$dropout <- NULL
+                                 dps$visit_schedule$mean <- 1.5
+                                 dps$visit_schedule$sd <- 0.4
                                  dps
                              }
                          ),
-                         complex = list(TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)
+                         complex = list(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE)
                      )
+
+modify_dps <- function(complex = FALSE, modify_fn) {
+    dps <- get_diabetes_simulation_setting(complex = complex)
+    modify_fn(dps)
+}
+
+unconfound_true_values <- function(diabetes_polypharmacy_setting) {
+    dps <- diabetes_polypharmacy_setting
+    ## dps$parameter_values$effect_changeHbA1c_SGLT2 <- 0
+    dps$parameter_values$effect_changeHbA1c_mace <- 0
+    calculate_interventional_risks(
+        n = 500000, 
+        diabetes_polypharmacy_setting = dps,
+        intervention = list("SGLT2" = 1),
+        time_horizons = intervals,
+        terminal_events = c("death", "mace", "dropout"),
+        primary_event = "mace"
+    )
+}
+
+## Redo n,k, complex_settings
 
 list(
     tar_map(
@@ -172,10 +162,7 @@ list(
         ## -- Get the diabetes polypharmacy setting  ---
         tar_target(
             diabetes_polypharmacy_setting,
-            {
-                dps <- get_diabetes_simulation_setting(complex = complex)
-                modify_fn(dps)
-            }
+            modify_dps(complex = complex, modify_fn = modify_fn)
         ),
 
         ## --- Simulate a large cohort for running methods ---
@@ -201,6 +188,13 @@ list(
             ),
             cue = cue_true
         ),
+
+        ## --- Calculate true values for the interventional risks ---
+        tar_target(
+            true_values_unconfounded,
+            unconfound_true_values(diabetes_polypharmacy_setting)
+        ),
+        
         ## --- Plot dropout curves for the simulated population ---
         tar_target(
             dropout_plot,
@@ -217,9 +211,9 @@ list(
                 intervals = c(0, intervals),
                 learner = "learn_glmnet",
                 regimens = "SGLT2",
-                tv_covs = if (complex) c("HbA1c", "SGLT2") else c("changeHbA1c", "SGLT2"),
+                tv_covs = c("changeHbA1c", "SGLT2"),
                 exclusion_rules = NULL,
-                baseline_covs = if (complex) "sex" else "HbA1c",
+                baseline_covs = if (complex) c("sex", "HbA1c") else "HbA1c",
                 name_outcome = "mace",
                 name_competing = "death",
                 names_intermediate = NULL,
@@ -243,16 +237,39 @@ list(
                 contrasts = FALSE,
                 competing_event = "death",
                 penalize_treatment = FALSE,
-                time_confounders = if (complex) c("HbA1c", "SGLT2_percentage") else "changeHbA1c",
-                exclude_variables = if (complex) "SGLT2_percentage" else NULL,
-                baseline_confounders = if (complex) "sex" else "HbA1c",
+                time_confounders = "changeHbA1c",
+                exclude_variables = NULL,
+                baseline_confounders = if (complex) c("sex", "HbA1c") else "HbA1c",
                 verbose = TRUE,
                 tmle_update = TRUE,
                 lag_propensity = 1
             ),
             cue = cue_test
         ),
-
+        ## --- ICE-IPCW estimator without time-varying confounders on a single simulated dataset ---
+        tar_target(
+            ice_ipcw_no_tvc,
+            run_ice_ipcw(
+                data = diabetes_population,
+                time_horizons = intervals,
+                regimens = "SGLT2",
+                model_pseudo_outcomes = c("oipcw_expit", "lm", "ipcw_glm_expit"),
+                penalize_pseudo_outcome = FALSE,
+                primary_event = "mace",
+                contrasts = FALSE,
+                competing_event = "death",
+                penalize_treatment = FALSE,
+                time_confounders = NULL,
+                exclude_variables = NULL,
+                baseline_confounders = if (complex) c("sex", "HbA1c") else "HbA1c",
+                verbose = TRUE,
+                tmle_update = TRUE,
+                lag_propensity = 1
+            ),
+            cue = cue_test
+        ),
+                
+        
         ## --- Cause-Specific Cox estimator on a single simulated dataset ---
         tar_target(
             csc,
@@ -264,7 +281,18 @@ list(
             ),
             cue = cue_test
         ),
-
+        
+        ## --- Observational parameters
+        tar_target(
+            aalen_johansen,
+            get_aalen_johansen(
+                dt = diabetes_population,
+                times = intervals,
+                cause = 1
+            ),
+            cue = cue_test
+        ),
+        
         ## --- Plotting estimates against true values ---
         tar_target(
             plot,
@@ -272,6 +300,8 @@ list(
                 estimates_rtmle = rtmle,
                 estimates_ice_ipcw = ice_ipcw,
                 estimates_csc = csc,
+                estimates_aj = aalen_johansen,
+                estimates_ice_ipcw_no_tvc = ice_ipcw_no_tvc,
                 intervals = c(0, intervals),
                 true_values = true_values),
             cue = cue_test
@@ -293,9 +323,9 @@ list(
                     time_horizons = time_horizon,
                     intervals = c(0, intervals),
                     regimens = "SGLT2",
-                    tv_covs = if (complex) c("HbA1c", "SGLT2") else c("changeHbA1c", "SGLT2"),
+                    tv_covs = c("changeHbA1c", "SGLT2"),
                     exclusion_rules = NULL,
-                    baseline_covs = if (complex) "sex" else "HbA1c",
+                    baseline_covs = if (complex) c("sex", "HbA1c") else "HbA1c",
                     name_outcome = "mace",
                     name_competing = "death",
                     names_intermediate = NULL,
@@ -314,11 +344,12 @@ list(
                     contrasts = FALSE,
                     competing_event = "death",
                     penalize_treatment = FALSE,
-                    time_confounders = if (complex) c("HbA1c", "SGLT2_percentage") else "changeHbA1c",
-                    exclude_variables = if (complex) "SGLT2_percentage" else NULL,
-                    baseline_confounders = if (complex) "sex" else "HbA1c",
+                    time_confounders = "changeHbA1c",
+                    exclude_variables = NULL,
+                    baseline_confounders = if (complex) c("sex", "HbA1c") else "HbA1c",
                     verbose = TRUE,
-                    tmle_update = TRUE
+                    tmle_update = TRUE,
+                    lag_propensity = 1
                 )
 
                 csc <- run_csc(
@@ -328,10 +359,47 @@ list(
                     cause = 1
                 )
 
+                ice_ipcw_no_tvc <- run_ice_ipcw(
+                    data = diabetes_population,
+                    time_horizons = time_horizon,
+                    regimens = "SGLT2",
+                    model_pseudo_outcomes = c("oipcw_expit", "lm", "ipcw_glm_expit"),
+                    penalize_pseudo_outcome = FALSE,
+                    primary_event = "mace",
+                    contrasts = FALSE,
+                    competing_event = "death",
+                    penalize_treatment = FALSE,
+                    time_confounders = NULL,
+                    exclude_variables = NULL,
+                    baseline_confounders = if (complex) c("sex", "HbA1c") else "HbA1c",
+                    verbose = TRUE,
+                    tmle_update = TRUE,
+                    lag_propensity = 1
+                )
+
+                ice_ipcw_no_tmle <- run_ice_ipcw(
+                    data = diabetes_population,
+                    time_horizons = time_horizon,
+                    regimens = "SGLT2",
+                    model_pseudo_outcomes = c("oipcw_expit", "lm", "ipcw_glm_expit"),
+                    penalize_pseudo_outcome = FALSE,
+                    primary_event = "mace",
+                    contrasts = FALSE,
+                    competing_event = "death",
+                    penalize_treatment = FALSE,
+                    time_confounders = "changeHbA1c",
+                    exclude_variables = NULL,
+                    baseline_confounders = if (complex) c("sex", "HbA1c") else "HbA1c",
+                    verbose = TRUE,
+                    tmle_update = FALSE
+                )
+
                 list(
                     rtmle = rtmle,
                     ice_ipcw = ice_ipcw,
-                    csc = csc
+                    csc = csc,
+                    ice_ipcw_no_tvc = ice_ipcw_no_tvc,
+                    ice_ipcw_no_tmle = ice_ipcw_no_tmle
                 )
             },
             iteration = "list",
@@ -356,26 +424,34 @@ list(
             purrr::map_dfr(sim, ~ map_dfr(.x, "csc"))
         ),
 
+        tar_target(
+            results_ice_ipcw_no_tvc,
+            purrr::map_dfr(sim, ~ map_dfr(.x, c("ice_ipcw_no_tvc", "results")))
+        ),
+
+        tar_target(
+            results_ice_ipcw_no_tmle,
+            purrr::map_dfr(sim, ~ map_dfr(.x, c("ice_ipcw_no_tmle", "results")))
+        ),
+
         # --- Plot simulation results ---
         tar_target(
-            plot_simulation_results, plot_sims(results_rtmle, results_ice_ipcw, results_csc, true_values, time_horizon)
+            plot_simulation_results, plot_sims(results_rtmle, results_ice_ipcw, results_csc, results_ice_ipcw_no_tvc, results_ice_ipcw_no_tmle, true_values, time_horizon)
         ),
 
         ## --- Coverage, MSE, Bias ---
         tar_target(
             summary_simulation_results,
-            get_coverage(results_rtmle, results_ice_ipcw, results_csc, true_values, time_horizon)
+            get_coverage(results_rtmle, results_ice_ipcw, results_csc, results_ice_ipcw_no_tvc, results_ice_ipcw_no_tmle, true_values, time_horizon)
         )
     ),
     ## --- Vary K in ICE-IPCW ---
     tar_target(
-        dps_K, {
-            dps <- get_diabetes_simulation_setting(complex = TRUE)
-            dps %>% ((scenarios %>% filter(scenario == "complex_setting_more_visits") %>% pull(modify_fn)) %>% first())
-        }
+        dps_K,
+        modify_dps(complex = TRUE, modify_fn = (scenarios %>% filter(scenario == "complex_setting_more_visits") %>% pull(modify_fn)) %>% first())
     ),
     tar_rep(
-        sim_K,
+        sim_K_vary,
         {
             complex <- TRUE
             diabetes_population <- do.call(
@@ -396,11 +472,12 @@ list(
                     contrasts = FALSE,
                     competing_event = "death",
                     penalize_treatment = FALSE,
-                    time_confounders = if (complex) c("HbA1c", "SGLT2_percentage") else "changeHbA1c",
-                    exclude_variables = if (complex) "SGLT2_percentage" else NULL,
-                    baseline_confounders = if (complex) "sex" else "HbA1c",
+                    time_confounders = "changeHbA1c",
+                    exclude_variables = NULL,
+                    baseline_confounders = if (complex) c("sex", "HbA1c") else "HbA1c",
                     verbose = TRUE,
                     tmle_update = TRUE,
+                    lag_propensity = 1,
                     K = K)$results
                 out[, K := K]
                 results[[as.character(K)]] <- out
@@ -416,12 +493,15 @@ list(
     ),
     ## --- Plot results for varying K ---
     tar_target(
-        plot_K, {
-            all_dfs <- sim_K |>
+        plot_K_vary, {
+            all_dfs <- sim_K_vary |>
                 map(~ map(.x, "ice_ipcw")) |>  # reach ice_ipcw
                 flatten() |>                   # remove one level
                 flatten()                      # remove second level (dfs)
             results_ice_ipcw_K <- rbindlist(all_dfs)
+            results_ice_ipcw_test <- results_ice_ipcw_complex_setting_more_visits
+            results_ice_ipcw_test[, K := "adaptive"]
+            results_ice_ipcw_K <- rbind(results_ice_ipcw_K, results_ice_ipcw_test, fill = TRUE)
             
             ggplot(results_ice_ipcw_K, aes(x = factor(K), y = estimate, fill = model_pseudo_outcome)) +
                 geom_boxplot(outliers = FALSE) +
@@ -434,13 +514,11 @@ list(
     
     ## --- Vary sample size in simulations ---
     tar_target(
-        dps_n, {
-            dps <- get_diabetes_simulation_setting(complex = TRUE)
-            dps %>% ((scenarios %>% filter(scenario == "complex_setting") %>% pull(modify_fn)) %>% first())
-        }
+        dps_n,
+        modify_dps(complex = TRUE, modify_fn = (scenarios %>% filter(scenario == "complex_setting") %>% pull(modify_fn)) %>% first())
     ),
     tar_rep(
-        sim_n,
+        sim_n_vary,
         {
             complex <- TRUE
 
@@ -461,11 +539,12 @@ list(
                     contrasts = FALSE,
                     competing_event = "death",
                     penalize_treatment = FALSE,
-                    time_confounders = if (complex) c("HbA1c", "SGLT2_percentage") else "changeHbA1c",
-                    exclude_variables = if (complex) "SGLT2_percentage" else NULL,
-                    baseline_confounders = if (complex) "sex" else "HbA1c",
+                    time_confounders = "changeHbA1c",
+                    exclude_variables = NULL,
+                    baseline_confounders = if (complex) c("sex", "HbA1c") else "HbA1c",
                     verbose = TRUE,
-                    tmle_update = TRUE
+                    tmle_update = TRUE,
+                    lag_propensity = 1
                 )$results
                 out[, n := n]
                 results[[as.character(n)]] <- out
@@ -479,8 +558,8 @@ list(
     ),
     ## --- Plot results for varying n ---
     tar_target(
-        plot_n, {
-            all_dfs <- sim_n |>
+        plot_n_vary, {
+            all_dfs <- sim_n_vary |>
                 map(~ map(.x, "ice_ipcw")) |>  # reach ice_ipcw
                 flatten() |>                   # remove one level
                 flatten()                      # remove second level (dfs)
@@ -497,3 +576,4 @@ list(
 
 ######################################################################
 ### _targets.R ends here
+

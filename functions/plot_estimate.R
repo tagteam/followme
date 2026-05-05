@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 26 2026 (11:16) 
 ## Version: 
-## Last-Updated: Apr 23 2026 (17:31) 
+## Last-Updated: Apr 30 2026 (13:33) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 82
+##     Update #: 96
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -18,6 +18,8 @@
 plot_estimate <- function(estimates_rtmle,
                           estimates_ice_ipcw,
                           estimates_csc,
+                          estimates_aj,
+                          estimates_ice_ipcw_no_tvc,
                           intervals = seq(0, 60, 6),
                           true_values) {
 
@@ -44,6 +46,18 @@ plot_estimate <- function(estimates_rtmle,
   ice_dt[, Protocol := paste0("Always_", Protocol)]
   ice_dt[, Type := paste0("ICE-IPCW (", model_pseudo_outcome, ")")]
 
+  # --- ICE-IPCW without TVC ---
+  ice_no_tvc_dt <- estimates_ice_ipcw_no_tvc$results[
+        , .(Estimate = estimate,
+            Lower = lower,
+            Upper = upper,
+            Time_horizon = time_horizon,
+            model_pseudo_outcome = model_pseudo_outcome,
+            Protocol = treatment_name)
+          ]
+  ice_no_tvc_dt[, Protocol := paste0("Always_", Protocol)]
+  ice_no_tvc_dt[, Type := paste0("ICE-IPCW no TVC (", model_pseudo_outcome, ")")]
+
   # --- IPW ---
   ipw_dt <- estimates_ice_ipcw$results[, c("ipw", "time_horizon", "treatment_name"), with = FALSE]
   setnames(ipw_dt, c("ipw", "time_horizon", "treatment_name"), c("Estimate", "Time_horizon", "Protocol"))
@@ -53,23 +67,32 @@ plot_estimate <- function(estimates_rtmle,
   ipw_dt[, Upper := NA_real_]
     
   # --- True values ---
-  true_dt <- copy(true_values)
-  true_dt[, Protocol := paste0("Always_", intervention)]
+  if (!is.null(true_values)){
+    true_dt <- copy(true_values)
+    true_dt[, Protocol := paste0("Always_", intervention)]
+  }  
 
   # --- CSC ---
-  csc_dt <- estimates_csc[, .(Protocol = true_dt$Protocol[1], Time_horizon = time_horizon, Estimate = estimate)]
+  csc_dt <- estimates_csc[, .(Protocol = ipw_dt$Protocol[1], Time_horizon = time_horizon, Estimate = estimate)]
   csc_dt[, Type := "Naive Cause-Specific Cox"]
+
+  # -- Aalen-Johansen ---
+  aj_dt <- estimates_aj[, .(Protocol = ipw_dt$Protocol[1], Time_horizon = time_horizon, Estimate = estimate)]
+  aj_dt[, Type := "Aalen-Johansen"]
     
   # --- Combine ---
-  plot_data <- rbindlist(list(rtmle_dt, ice_dt, ipw_dt, csc_dt), use.names = TRUE, fill = TRUE)
+  plot_data <- rbindlist(list(rtmle_dt, ice_dt, ipw_dt, csc_dt, aj_dt, ice_no_tvc_dt), use.names = TRUE, fill = TRUE)
 
   # --- Plot ---
-  ggplot(plot_data, aes(x = Time_horizon, y = Estimate)) +
+  p <- ggplot(plot_data, aes(x = Time_horizon, y = Estimate)) +
     geom_line() +
     geom_ribbon(aes(ymin = Lower, ymax = Upper), alpha = 0.2, color = NA) +
     facet_grid(Protocol~Type) +
-    theme_bw() +
-    geom_line(data = true_dt, aes(x = time_horizon, y = risk), color = "red", linetype = "dashed")
+    theme_bw()
+  if (!is.null(true_values)){
+      p <- p + geom_line(data = true_dt, aes(x = time_horizon, y = risk), color = "red", linetype = "dashed")
+  }
+  return(p)
 }
 ######################################################################
 ### plot_estimate.R ends here

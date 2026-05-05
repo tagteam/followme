@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 16 2026 (11:52) 
 ## Version: 
-## Last-Updated: Apr 24 2026 (14:08) 
+## Last-Updated: Apr 30 2026 (13:56) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 251
+##     Update #: 259
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -31,6 +31,22 @@ run_ice_ipcw <- function(data,
                          lag_pseudo_outcome = NULL,
                          K = NULL,
                          verbose = FALSE, ...){  ## arguments to be passed to debias_ice_ipcw
+    ## data<-tar_read(diabetes_population_complex_setting_no_percentage)
+    ## time_horizons <- 12
+    ## primary_event = "mace"
+    ##                      competing_event = "death"
+    ##                      regimens = "SGLT2"
+    ##                      contrasts = TRUE
+    ##                      contrasts_reference = NULL
+    ##                      penalize_treatment = TRUE
+    ##                      baseline_confounders = "sex"
+    ##                      time_confounders = NULL
+    ##                      exclude_variables = NULL
+    ##                      model_pseudo_outcomes = "oipcw_expit"
+    ##                      lag_propensity = NULL
+    ##                      lag_pseudo_outcome = NULL
+    ##                      K = NULL
+    ##                      verbose = FALSE
     ## Check if contICEIPCW is installed, if not install it from GitHub
     if (!requireNamespace("contICEIPCW", quietly = TRUE)) {
         ## Check that version of "contICEIPCW" is new enough
