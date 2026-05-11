@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 26 2026 (11:16) 
 ## Version: 
-## Last-Updated: Apr 30 2026 (13:33) 
+## Last-Updated: May  6 2026 (14:42) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 96
+##     Update #: 125
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -20,6 +20,7 @@ plot_estimate <- function(estimates_rtmle,
                           estimates_csc,
                           estimates_aj,
                           estimates_ice_ipcw_no_tvc,
+                          estimates_ice_ipcw_no_tmle,
                           intervals = seq(0, 60, 6),
                           true_values) {
 
@@ -44,7 +45,7 @@ plot_estimate <- function(estimates_rtmle,
   ]
 
   ice_dt[, Protocol := paste0("Always_", Protocol)]
-  ice_dt[, Type := paste0("ICE-IPCW (", model_pseudo_outcome, ")")]
+  ice_dt[, Type := paste0("ICE-IPCW (tmle) (", model_pseudo_outcome, ")")]
 
   # --- ICE-IPCW without TVC ---
   ice_no_tvc_dt <- estimates_ice_ipcw_no_tvc$results[
@@ -55,11 +56,29 @@ plot_estimate <- function(estimates_rtmle,
             model_pseudo_outcome = model_pseudo_outcome,
             Protocol = treatment_name)
           ]
-  ice_no_tvc_dt[, Protocol := paste0("Always_", Protocol)]
-  ice_no_tvc_dt[, Type := paste0("ICE-IPCW no TVC (", model_pseudo_outcome, ")")]
+    ice_no_tvc_dt[, Protocol := paste0("Always_", Protocol)]
+    ice_no_tvc_dt[, Type := paste0("ICE-IPCW no TVC (", model_pseudo_outcome, ")")]
 
-  # --- IPW ---
-  ipw_dt <- estimates_ice_ipcw$results[, c("ipw", "time_horizon", "treatment_name"), with = FALSE]
+    ice_ipcw_no_tmle <- estimates_ice_ipcw_no_tmle$results[, .(Estimate = estimate,
+        Lower = lower,
+        Upper = upper,
+        Time_horizon = time_horizon,
+        model_pseudo_outcome = model_pseudo_outcome,
+        ice_ipcw_estimate = ice_ipcw_estimate,
+        Protocol = paste0("Always_", treatment_name))]
+    ice_ipcw_no_tmle[, Type := paste0("ICE-IPCW (one-step) (", model_pseudo_outcome, ")")]
+    ice_ipcw_no_tmle[model_pseudo_outcome == "ipcw_glm_expit", model_pseudo_outcome := "IPCW-GLM (expit)"]
+    ice_ipcw_no_tmle[model_pseudo_outcome == "lm", model_pseudo_outcome := "LM"]
+    ice_ipcw_no_tmle[model_pseudo_outcome == "oipcw_expit", model_pseudo_outcome := "OIPCW (expit)"]
+    ice <- copy(ice_ipcw_no_tmle)
+    ice[, Type := paste0("ICE-IPCW (", model_pseudo_outcome, ")")]
+    ice[, Estimate := ice_ipcw_estimate]
+    ice[, ice_ipcw_estimate := NULL]
+    ice[, c("Lower", "Upper") := list(NA_real_, NA_real_)]
+    ice_ipcw_no_tmle[, ice_ipcw_estimate := NULL]
+
+    # --- IPW ---
+    ipw_dt <- estimates_ice_ipcw$results[, c("ipw", "time_horizon", "treatment_name"), with = FALSE]
   setnames(ipw_dt, c("ipw", "time_horizon", "treatment_name"), c("Estimate", "Time_horizon", "Protocol"))
   ipw_dt[, Protocol := paste0("Always_", Protocol)]
   ipw_dt[, Type := "IPW"]
@@ -81,7 +100,7 @@ plot_estimate <- function(estimates_rtmle,
   aj_dt[, Type := "Aalen-Johansen"]
     
   # --- Combine ---
-  plot_data <- rbindlist(list(rtmle_dt, ice_dt, ipw_dt, csc_dt, aj_dt, ice_no_tvc_dt), use.names = TRUE, fill = TRUE)
+  plot_data <- rbindlist(list(rtmle_dt, ice_dt, ipw_dt, csc_dt, aj_dt, ice_no_tvc_dt, ice_ipcw_no_tmle, ice), use.names = TRUE, fill = TRUE)
 
   # --- Plot ---
   p <- ggplot(plot_data, aes(x = Time_horizon, y = Estimate)) +
@@ -92,7 +111,7 @@ plot_estimate <- function(estimates_rtmle,
   if (!is.null(true_values)){
       p <- p + geom_line(data = true_dt, aes(x = time_horizon, y = risk), color = "red", linetype = "dashed")
   }
-  return(p)
+  return(list(plot = p, plot_data = plot_data))
 }
 ######################################################################
 ### plot_estimate.R ends here

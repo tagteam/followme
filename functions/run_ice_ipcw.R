@@ -3,9 +3,9 @@
 ## Author: Johan Sebastian Ohlendorff
 ## Created: Mar 16 2026 (11:52) 
 ## Version: 
-## Last-Updated: Apr 30 2026 (13:56) 
+## Last-Updated: May  8 2026 (15:42) 
 ##           By: Johan Sebastian Ohlendorff
-##     Update #: 259
+##     Update #: 265
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -30,6 +30,7 @@ run_ice_ipcw <- function(data,
                          lag_propensity = NULL,
                          lag_pseudo_outcome = NULL,
                          K = NULL,
+                         return_ic = TRUE,
                          verbose = FALSE, ...){  ## arguments to be passed to debias_ice_ipcw
     ## data<-tar_read(diabetes_population_complex_setting_no_percentage)
     ## time_horizons <- 12
@@ -116,11 +117,16 @@ run_ice_ipcw <- function(data,
                                 penalize_hazard = FALSE,
                                 conservative = TRUE,
                                 static_intervention = 1,
-                                return_ic = TRUE,
+                                return_ic = return_ic,
                                 verbose = verbose,
                                 model_pseudo_outcome = m,
                                 lag = lag_pseudo_outcome,
-                                ...)
+                ...)
+            if (!return_ic) {
+               tmp <- list()
+               tmp$result <- out
+               out <- tmp
+            }
             out$result[, model_pseudo_outcome := m]
             out$result[, treatment_name := regimen]
             out$treatment_name <- regimen
